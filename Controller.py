@@ -1,21 +1,33 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool, Manager
 from multipledispatch import *
-from Logger import *
 import time
+
+from Logger import *
+from SensorManager import *
 
 
 class Controller:
+    pool = Pool(processes=3)
+    process_manager = Manager()
+    inbox = process_manager.Queue()
+    logger_outbox = process_manager.Queue()
+    sensor_outbox = process_manager.Queue()
+
+    @staticmethod
+    @dispatch(LoggerObject)
+    def __handle_message(log_object):
+        Controller.logger_outbox.put(log_object)
+
     @staticmethod
     def run():
-        logger_queue = Queue()
-        logger_thread = Process(target=Logger.run, args=(logger_queue,))
-        logger_thread.start()
+        logger_thread = Controller.pool.apply_async(Logger.run, args=(Controller.logger_outbox,))
+        sensor_thread = Controller.pool.apply_async(SensorManager.run, args=(Controller.sensor_outbox, Controller.inbox,))
 
-        logger_queue.put(LoggerObject(LogLevel.CRITICAL, "Test Log Message"))
-        logger_queue.put(LoggerObject(LogLevel.ERROR, "Test Log Message"))
-        logger_queue.put(LoggerObject(LogLevel.WARNING, "Test Log Message"))
-        logger_queue.put(LoggerObject(LogLevel.INFO, "Test Log Message"))
-        logger_queue.put(LoggerObject(LogLevel.DEBUG, "Test Log Message"))
-        time.sleep(2)
+        message = Controller.inbox.get()
 
-        logger_thread.join()
+        Controller.__handle_message(message)
+
+
+if __name__ == "__main__":
+    Controller.run()
+

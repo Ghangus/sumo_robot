@@ -36,7 +36,7 @@ class Logger:
         Logger.logger.log(logger_object.level, logger_object.message)
 
     @staticmethod
-    def run(inbox: 'multiprocessing.Queue'):
+    def run(inbox):
         while True:
             message = inbox.get()
             Logger.__handle__message(message)
